@@ -1,6 +1,6 @@
 // Rendering system
 
-import type { Player, Bullet, Zombie, ResourceNode, GameState, Gate } from "./types";
+import type { Player, Bullet, Zombie, GameState, Gate } from "./types";
 import { GateType } from "./types";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, LANE_DIVIDER_X } from "./constants";
 import { getZombieColor } from "./entities";
@@ -9,10 +9,19 @@ import { EffectsManager } from "./effects";
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private effects: EffectsManager;
+  private zombieImage: HTMLImageElement;
+  private zombieImageLoaded: boolean = false;
 
   constructor(ctx: CanvasRenderingContext2D, effects: EffectsManager) {
     this.ctx = ctx;
     this.effects = effects;
+
+    // Load zombie image
+    this.zombieImage = new Image();
+    this.zombieImage.src = "/zombie.png";
+    this.zombieImage.onload = () => {
+      this.zombieImageLoaded = true;
+    };
   }
 
   /**
@@ -166,38 +175,78 @@ export class Renderer {
       // Render blood particles first (behind zombie)
       this.effects.renderBloodParticles(this.ctx, zombie.bloodParticles);
 
-      // Draw zombie body
-      const color = getZombieColor(zombie);
-      this.ctx.fillStyle = color;
+      // Draw zombie image if loaded, otherwise fallback to circle
+      if (this.zombieImageLoaded) {
+        this.ctx.save();
 
-      this.ctx.beginPath();
-      this.ctx.arc(zombie.x, zombie.y, zombie.radius, 0, Math.PI * 2);
-      this.ctx.fill();
+        // Calculate size based on zombie radius (diameter)
+        const size = zombie.radius * 2;
 
-      // Draw zombie outline
-      this.ctx.strokeStyle = "#000000";
-      this.ctx.lineWidth = 2;
-      this.ctx.stroke();
+        // Apply health-based tint
+        const healthPercent = zombie.health / zombie.maxHealth;
+        if (healthPercent < 0.5) {
+          this.ctx.globalAlpha = 0.7 + healthPercent * 0.6;
+        }
 
-      // Draw zombie eyes
-      this.ctx.fillStyle = "#ff0000";
-      const eyeOffset = zombie.radius * 0.4;
-      this.ctx.beginPath();
-      this.ctx.arc(
-        zombie.x - eyeOffset / 2,
-        zombie.y - eyeOffset / 2,
-        3,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.arc(
-        zombie.x + eyeOffset / 2,
-        zombie.y - eyeOffset / 2,
-        3,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.fill();
+        // Apply type-based color tint
+        const color = getZombieColor(zombie);
+        if (color !== "#ff4444") {
+          // Only tint if not standard zombie color
+          this.ctx.globalCompositeOperation = "multiply";
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(
+            zombie.x - size / 2,
+            zombie.y - size / 2,
+            size,
+            size
+          );
+          this.ctx.globalCompositeOperation = "source-over";
+        }
+
+        // Draw the zombie image centered at zombie position
+        this.ctx.drawImage(
+          this.zombieImage,
+          zombie.x - size / 2,
+          zombie.y - size / 2,
+          size,
+          size
+        );
+
+        this.ctx.restore();
+      } else {
+        // Fallback to circle rendering if image not loaded
+        const color = getZombieColor(zombie);
+        this.ctx.fillStyle = color;
+
+        this.ctx.beginPath();
+        this.ctx.arc(zombie.x, zombie.y, zombie.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Draw zombie outline
+        this.ctx.strokeStyle = "#000000";
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+
+        // Draw zombie eyes
+        this.ctx.fillStyle = "#ff0000";
+        const eyeOffset = zombie.radius * 0.4;
+        this.ctx.beginPath();
+        this.ctx.arc(
+          zombie.x - eyeOffset / 2,
+          zombie.y - eyeOffset / 2,
+          3,
+          0,
+          Math.PI * 2
+        );
+        this.ctx.arc(
+          zombie.x + eyeOffset / 2,
+          zombie.y - eyeOffset / 2,
+          3,
+          0,
+          Math.PI * 2
+        );
+        this.ctx.fill();
+      }
 
       // Draw type indicator
       this.drawZombieTypeIndicator(zombie);
@@ -276,57 +325,6 @@ export class Renderer {
   }
 
   /**
-   * Render resource nodes
-   */
-  renderResourceNodes(nodes: ResourceNode[]): void {
-    for (const node of nodes) {
-      if (node.collected) continue;
-
-      // Pulsing effect
-      const pulse = Math.sin(Date.now() * 0.003) * 3;
-
-      // Draw glow
-      const gradient = this.ctx.createRadialGradient(
-        node.x + node.width / 2,
-        node.y + node.height / 2,
-        0,
-        node.x + node.width / 2,
-        node.y + node.height / 2,
-        node.width / 2 + pulse + 10
-      );
-      gradient.addColorStop(0, "rgba(255, 215, 0, 0.8)");
-      gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
-
-      this.ctx.fillStyle = gradient;
-      this.ctx.beginPath();
-      this.ctx.arc(
-        node.x + node.width / 2,
-        node.y + node.height / 2,
-        node.width / 2 + pulse + 10,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.fill();
-
-      // Draw resource node
-      this.ctx.fillStyle = "#ffd700";
-      this.ctx.fillRect(node.x, node.y, node.width, node.height);
-
-      // Draw border
-      this.ctx.strokeStyle = "#ffaa00";
-      this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(node.x, node.y, node.width, node.height);
-
-      // Draw resource icon
-      this.ctx.fillStyle = "#000000";
-      this.ctx.font = "20px Arial";
-      this.ctx.textAlign = "center";
-      this.ctx.textBaseline = "middle";
-      this.ctx.fillText("$", node.x + node.width / 2, node.y + node.height / 2);
-    }
-  }
-
-  /**
    * Render gates
    */
   renderGates(gates: Gate[]): void {
@@ -334,7 +332,11 @@ export class Renderer {
       if (!gate.active) continue;
 
       // Draw gate background
-      const bgColor = gate.passed ? "#666666" : gate.type === GateType.ADD ? "#4CAF50" : "#FF9800";
+      const bgColor = gate.passed
+        ? "#666666"
+        : gate.type === GateType.ADD
+        ? "#4CAF50"
+        : "#FF9800";
       this.ctx.fillStyle = bgColor;
       this.ctx.fillRect(gate.x, gate.y, gate.width, gate.height);
 
@@ -348,10 +350,10 @@ export class Renderer {
       this.ctx.font = "bold 36px Arial";
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
-      
+
       const symbol = gate.type === GateType.ADD ? "+" : "×";
       const text = `${symbol}${gate.value}`;
-      
+
       this.ctx.fillText(
         text,
         gate.x + gate.width / 2,
@@ -374,36 +376,43 @@ export class Renderer {
       30
     );
     this.ctx.fillText(`Shooters: ${player.shooterCount}`, 20, 60);
-    this.ctx.fillText(`Resources: ${player.resources}`, 20, 90);
-    this.ctx.fillText(`Wave: ${gameState.currentWave}`, 20, 120);
+    this.ctx.fillText(`Wave: ${gameState.currentWave}`, 20, 90);
 
     // Wave progress
     if (gameState.waveActive) {
       const zombiesRemaining =
         gameState.zombiesInWave - gameState.zombiesKilled;
-      this.ctx.fillText(`Zombies: ${zombiesRemaining}`, 20, 150);
+      this.ctx.fillText(`Zombies: ${zombiesRemaining}`, 20, 120);
     } else {
-      this.ctx.fillText("WAVE COMPLETE!", 20, 150);
+      this.ctx.fillText("WAVE COMPLETE!", 20, 120);
     }
 
     // Top right - Instructions
     this.ctx.textAlign = "right";
     this.ctx.font = "16px Arial";
     this.ctx.fillStyle = "#aaaaaa";
-    this.ctx.fillText("A/D or ← → - Switch Lanes", CANVAS_WIDTH - 20, 30);
+    this.ctx.fillText("A/D or ← → - Move Left/Right", CANVAS_WIDTH - 20, 30);
     this.ctx.fillText("Auto-Shoot", CANVAS_WIDTH - 20, 55);
-    this.ctx.fillText("Collect gates to increase shooters!", CANVAS_WIDTH - 20, 80);
-    this.ctx.fillText("Green = Add (+) | Orange = Multiply (×)", CANVAS_WIDTH - 20, 105);
+    this.ctx.fillText(
+      "Collect gates to increase shooters!",
+      CANVAS_WIDTH - 20,
+      80
+    );
+    this.ctx.fillText(
+      "Green = Add (+) | Orange = Multiply (×)",
+      CANVAS_WIDTH - 20,
+      105
+    );
 
     // Center - Mode indicator
     this.ctx.textAlign = "center";
     this.ctx.font = "bold 24px Arial";
     if (gameState.explorationMode) {
       this.ctx.fillStyle = "#ffd700";
-      this.ctx.fillText("EXPLORATION MODE", CANVAS_WIDTH / 2, 40);
+      this.ctx.fillText("WAVE COMPLETE!", CANVAS_WIDTH / 2, 40);
       this.ctx.font = "16px Arial";
       this.ctx.fillStyle = "#ffffff";
-      this.ctx.fillText("Collect resources and survive!", CANVAS_WIDTH / 2, 65);
+      this.ctx.fillText("Next wave incoming...", CANVAS_WIDTH / 2, 65);
     }
   }
 
@@ -435,22 +444,13 @@ export class Renderer {
       CANVAS_HEIGHT / 2 + 50
     );
 
-    // Resource loss message
-    this.ctx.fillStyle = "#ffaa00";
-    this.ctx.font = "bold 24px Arial";
-    this.ctx.fillText(
-      "You lost 50% of your resources!",
-      CANVAS_WIDTH / 2,
-      CANVAS_HEIGHT / 2 + 100
-    );
-
     // Respawn message
     this.ctx.fillStyle = "#aaaaaa";
     this.ctx.font = "20px Arial";
     this.ctx.fillText(
       "Respawning...",
       CANVAS_WIDTH / 2,
-      CANVAS_HEIGHT / 2 + 150
+      CANVAS_HEIGHT / 2 + 100
     );
   }
 

@@ -20,14 +20,13 @@ export interface Player extends Entity {
   velocityX: number;
   velocityY: number;
   rotation: number; // Angle in radians for aiming
-  resources: number;
   isShooting: boolean;
   lastShootTime: number;
   shootInterval: number;
   damageFlashTime: number;
   invulnerableTime: number;
   shooterCount: number; // Number of shooters
-  currentLane: number; // 0 = left lane, 1 = right lane
+  currentLane: number; // 0 = left lane, 1 = right lane (kept for compatibility)
 }
 
 export interface Bullet extends Entity {

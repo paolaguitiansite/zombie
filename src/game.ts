@@ -4,7 +4,6 @@ import type {
   Player,
   Bullet,
   Zombie,
-  ResourceNode,
   GameState,
   Gate,
 } from "./types";
@@ -16,12 +15,9 @@ import {
   WAVE_ZOMBIE_INCREASE,
   WAVE_DELAY,
   ZOMBIE_SPAWN_INTERVAL,
-  DEATH_RESOURCE_LOSS_PERCENT,
   DEATH_RESPAWN_DELAY,
   PLAYER_INVULNERABLE_TIME,
-  RESOURCE_NODES_PER_LEVEL,
   BULLET_LIFETIME,
-  LANE_WIDTH,
   GATE_SPAWN_INTERVAL,
   GATE_SPEED,
 } from "./constants";
@@ -29,11 +25,9 @@ import {
   createPlayer,
   createBullet,
   createRandomZombie,
-  createResourceNode,
   createGate,
   updateZombieAI,
   damageZombie,
-  getZombieResourceDrop,
 } from "./entities";
 import { Renderer } from "./renderer";
 import { EffectsManager } from "./effects";
@@ -41,7 +35,6 @@ import {
   checkRectCircleCollision,
   checkCircleCollision,
   checkRectCollision,
-  randomFloat,
 } from "./utils";
 
 export class Game {
@@ -53,7 +46,6 @@ export class Game {
   private player: Player;
   private bullets: Bullet[] = [];
   private zombies: Zombie[] = [];
-  private resourceNodes: ResourceNode[] = [];
   private gates: Gate[] = [];
 
   private gameState: GameState;
@@ -96,9 +88,6 @@ export class Game {
 
     // Setup input handlers
     this.setupInputHandlers();
-
-    // Spawn initial resource nodes
-    this.spawnResourceNodes();
 
     // Initialize gate spawn time
     this.lastGateSpawnTime = Date.now();
@@ -164,9 +153,6 @@ export class Game {
     // Check collisions
     this.checkCollisions(currentTime);
 
-    // Check resource collection
-    this.checkResourceCollection();
-
     // Check gate collisions
     this.checkGateCollisions();
   }
@@ -182,33 +168,21 @@ export class Game {
       this.player.damageFlashTime -= deltaTime;
     }
 
-    // Handle lane switching (A/D or Arrow Keys)
-    // Switch to left lane
-    if (
-      (this.keys["a"] || this.keys["arrowleft"]) &&
-      this.player.currentLane !== 0
-    ) {
-      this.player.currentLane = 0;
-      this.keys["a"] = false;
-      this.keys["arrowleft"] = false;
+    // Handle free horizontal movement (A/D or Arrow Keys)
+    if (this.keys["a"] || this.keys["arrowleft"]) {
+      this.player.x -= this.player.speed;
     }
-    // Switch to right lane
-    if (
-      (this.keys["d"] || this.keys["arrowright"]) &&
-      this.player.currentLane !== 1
-    ) {
-      this.player.currentLane = 1;
-      this.keys["d"] = false;
-      this.keys["arrowright"] = false;
+    if (this.keys["d"] || this.keys["arrowright"]) {
+      this.player.x += this.player.speed;
     }
 
-    // Smoothly move to target lane position
-    const targetX =
-      this.player.currentLane * LANE_WIDTH +
-      LANE_WIDTH / 2 -
-      this.player.width / 2;
-    const lerpSpeed = 0.2;
-    this.player.x += (targetX - this.player.x) * lerpSpeed;
+    // Keep player within canvas bounds (horizontal)
+    if (this.player.x < 0) {
+      this.player.x = 0;
+    }
+    if (this.player.x > CANVAS_WIDTH - this.player.width) {
+      this.player.x = CANVAS_WIDTH - this.player.width;
+    }
 
     // Keep player locked at bottom of screen
     this.player.y = CANVAS_HEIGHT - this.player.height - 20;
@@ -367,9 +341,6 @@ export class Game {
     this.gameState.waveStartTime = currentTime;
     this.gameState.explorationMode = true;
 
-    // Spawn new resource nodes
-    this.spawnResourceNodes();
-
     // Heal player slightly
     this.player.health = Math.min(
       this.player.health + 20,
@@ -459,10 +430,6 @@ export class Game {
   }
 
   private handleZombieDeath(zombie: Zombie): void {
-    // Drop resources
-    const resourceDrop = getZombieResourceDrop(zombie);
-    this.player.resources += resourceDrop;
-
     // Exploder zombies explode on death
     if (zombie.type === ZombieType.EXPLODER) {
       this.handleExploderDeath(zombie);
@@ -533,12 +500,6 @@ export class Game {
   private handlePlayerDeath(): void {
     this.isDead = true;
     this.deathTime = Date.now();
-
-    // Apply death penalty - lose resources
-    const resourceLoss = Math.floor(
-      this.player.resources * DEATH_RESOURCE_LOSS_PERCENT
-    );
-    this.player.resources -= resourceLoss;
   }
 
   private updateDeath(currentTime: number): void {
@@ -567,29 +528,6 @@ export class Game {
     this.gameState.waveActive = true;
   }
 
-  private checkResourceCollection(): void {
-    for (const node of this.resourceNodes) {
-      if (node.collected) continue;
-
-      if (checkRectCollision(this.player, node)) {
-        node.collected = true;
-        this.player.resources += node.resourceAmount;
-      }
-    }
-  }
-
-  private spawnResourceNodes(): void {
-    // Remove old collected nodes
-    this.resourceNodes = this.resourceNodes.filter((node) => !node.collected);
-
-    // Spawn new nodes
-    for (let i = 0; i < RESOURCE_NODES_PER_LEVEL; i++) {
-      const x = randomFloat(50, CANVAS_WIDTH - 50);
-      const y = randomFloat(50, CANVAS_HEIGHT - 50);
-      const node = createResourceNode(x, y);
-      this.resourceNodes.push(node);
-    }
-  }
 
   private updateGates(_currentTime: number): void {
     for (let i = this.gates.length - 1; i >= 0; i--) {
@@ -635,11 +573,8 @@ export class Game {
     for (const gate of this.gates) {
       if (gate.passed || !gate.active) continue;
 
-      // Check if player is in the same lane and collides with gate
-      if (
-        this.player.currentLane === gate.lane &&
-        checkRectCollision(this.player, gate)
-      ) {
+      // Check if player collides with gate
+      if (checkRectCollision(this.player, gate)) {
         gate.passed = true;
 
         // Apply gate effect
@@ -661,7 +596,6 @@ export class Game {
 
     // Render game entities
     this.renderer.renderGates(this.gates);
-    this.renderer.renderResourceNodes(this.resourceNodes);
     this.renderer.renderBullets(this.bullets);
     this.renderer.renderZombies(this.zombies);
     this.renderer.renderPlayer(this.player);

@@ -1,6 +1,6 @@
 // Entity management and AI
 
-import type { Player, Bullet, Zombie, ResourceNode, Gate } from "./types";
+import type { Player, Bullet, Zombie, Gate } from "./types";
 import { ZombieType, GateType } from "./types";
 import {
   PLAYER_WIDTH,
@@ -14,10 +14,8 @@ import {
   BULLET_DAMAGE,
   BULLET_LIFETIME,
   ZOMBIE_CONFIGS,
-  RESOURCE_NODE_SIZE,
-  RESOURCES_PER_NODE,
   CANVAS_HEIGHT,
-  LANE_WIDTH,
+  CANVAS_WIDTH,
   GATE_WIDTH,
   GATE_HEIGHT,
   INITIAL_SHOOTER_COUNT,
@@ -29,7 +27,7 @@ import { weightedRandomZombieType } from "./utils";
  */
 export function createPlayer(): Player {
   return {
-    x: LANE_WIDTH / 2 - PLAYER_WIDTH / 2, // Start in left lane
+    x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2, // Start in center
     y: CANVAS_HEIGHT - PLAYER_HEIGHT - 20, // Position at bottom of screen
     width: PLAYER_WIDTH,
     height: PLAYER_HEIGHT,
@@ -39,7 +37,6 @@ export function createPlayer(): Player {
     velocityX: 0,
     velocityY: 0,
     rotation: 0,
-    resources: 0,
     isShooting: false,
     lastShootTime: 0,
     shootInterval: PLAYER_SHOOT_INTERVAL,
@@ -47,7 +44,7 @@ export function createPlayer(): Player {
     damageFlashTime: 0,
     invulnerableTime: 0,
     shooterCount: INITIAL_SHOOTER_COUNT,
-    currentLane: 0, // Start in left lane
+    currentLane: 0, // Kept for compatibility but not used for lane switching
   };
 }
 
@@ -88,10 +85,12 @@ export function createZombie(type: ZombieType, lane?: number): Zombie {
     lane !== undefined ? lane : Math.floor(Math.random() * 2);
 
   // Spawn zombies at random X position within the lane
-  const laneStart = selectedLane * LANE_WIDTH;
+  const numLanes = 2;
+  const laneWidth = CANVAS_WIDTH / numLanes;
+  const laneStart = selectedLane * laneWidth;
   const spawnX =
     laneStart +
-    Math.random() * (LANE_WIDTH - config.radius * 2) +
+    Math.random() * (laneWidth - config.radius * 2) +
     config.radius;
 
   return {
@@ -135,20 +134,6 @@ export function createRandomZombie(): Zombie {
   return createZombie(selectedType);
 }
 
-/**
- * Create a resource node
- */
-export function createResourceNode(x: number, y: number): ResourceNode {
-  return {
-    x,
-    y,
-    width: RESOURCE_NODE_SIZE,
-    height: RESOURCE_NODE_SIZE,
-    resourceAmount: RESOURCES_PER_NODE,
-    collected: false,
-    active: true,
-  };
-}
 
 /**
  * Update zombie AI - move straight down toward player
@@ -195,13 +180,6 @@ export function damageZombie(zombie: Zombie, damage: number): boolean {
   return false;
 }
 
-/**
- * Get the resource drop amount for a zombie
- */
-export function getZombieResourceDrop(zombie: Zombie): number {
-  const config = ZOMBIE_CONFIGS[zombie.type];
-  return config.resourceDrop;
-}
 
 /**
  * Get zombie color based on type and health
@@ -229,8 +207,11 @@ export function getZombieColor(zombie: Zombie): string {
  * Create a gate
  */
 export function createGate(lane: number, type: GateType, value: number): Gate {
-  const laneStart = lane * LANE_WIDTH;
-  const gateX = laneStart + (LANE_WIDTH - GATE_WIDTH) / 2;
+  // Calculate gate position - spread gates across screen width
+  const numLanes = 2;
+  const laneWidth = CANVAS_WIDTH / numLanes;
+  const laneStart = lane * laneWidth;
+  const gateX = laneStart + (laneWidth - GATE_WIDTH) / 2;
 
   return {
     x: gateX,
