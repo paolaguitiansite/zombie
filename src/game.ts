@@ -223,6 +223,15 @@ export class Game {
       // Create muzzle flash effect
       this.effects.createMuzzleFlash(gunX, gunY, rotation);
     }
+
+    // Play shotgun sound effect
+    this.playShotgunSound();
+  }
+
+  // Add a helper function to play the shotgun sound effect
+  private playShotgunSound() {
+    const audio = new Audio('/shotgun.wav');
+    audio.play();
   }
 
   private updateBullets(currentTime: number): void {
