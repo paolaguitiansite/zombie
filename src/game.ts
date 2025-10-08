@@ -1,6 +1,13 @@
 // Main game logic
 
-import type { Player, Bullet, Zombie, ResourceNode, GameState, Gate } from "./types";
+import type {
+  Player,
+  Bullet,
+  Zombie,
+  ResourceNode,
+  GameState,
+  Gate,
+} from "./types";
 import { ZombieType, GateType } from "./types";
 import {
   CANVAS_WIDTH,
@@ -34,7 +41,6 @@ import {
   checkRectCircleCollision,
   checkCircleCollision,
   checkRectCollision,
-  clamp,
   randomFloat,
 } from "./utils";
 
@@ -52,8 +58,6 @@ export class Game {
 
   private gameState: GameState;
   private keys: Record<string, boolean> = {};
-  private mouseX: number = 0;
-  private mouseY: number = 0;
 
   private lastTime: number = 0;
   private lastZombieSpawnTime: number = 0;
@@ -112,18 +116,6 @@ export class Game {
 
     window.addEventListener("keyup", (e) => {
       this.keys[e.key.toLowerCase()] = false;
-    });
-
-    // Mouse movement for aiming
-    this.canvas.addEventListener("mousemove", (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      this.mouseX = e.clientX - rect.left;
-      this.mouseY = e.clientY - rect.top;
-    });
-
-    // Prevent context menu on right click
-    this.canvas.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
     });
   }
 
@@ -192,29 +184,36 @@ export class Game {
 
     // Handle lane switching (A/D or Arrow Keys)
     // Switch to left lane
-    if ((this.keys["a"] || this.keys["arrowleft"]) && this.player.currentLane !== 0) {
+    if (
+      (this.keys["a"] || this.keys["arrowleft"]) &&
+      this.player.currentLane !== 0
+    ) {
       this.player.currentLane = 0;
       this.keys["a"] = false;
       this.keys["arrowleft"] = false;
     }
     // Switch to right lane
-    if ((this.keys["d"] || this.keys["arrowright"]) && this.player.currentLane !== 1) {
+    if (
+      (this.keys["d"] || this.keys["arrowright"]) &&
+      this.player.currentLane !== 1
+    ) {
       this.player.currentLane = 1;
       this.keys["d"] = false;
       this.keys["arrowright"] = false;
     }
 
     // Smoothly move to target lane position
-    const targetX = this.player.currentLane * LANE_WIDTH + LANE_WIDTH / 2 - this.player.width / 2;
+    const targetX =
+      this.player.currentLane * LANE_WIDTH +
+      LANE_WIDTH / 2 -
+      this.player.width / 2;
     const lerpSpeed = 0.2;
     this.player.x += (targetX - this.player.x) * lerpSpeed;
-    
+
     // Keep player locked at bottom of screen
     this.player.y = CANVAS_HEIGHT - this.player.height - 20;
 
     // Player always aims upward (straight up)
-    const playerCenterX = this.player.x + this.player.width / 2;
-    const playerCenterY = this.player.y + this.player.height / 2;
     this.player.rotation = -Math.PI / 2; // Point straight up
 
     // Auto-shoot
@@ -231,12 +230,14 @@ export class Game {
     // Shoot multiple bullets based on shooter count
     const spreadAngle = Math.PI / 8; // 22.5 degrees spread
     const bulletsToShoot = Math.min(this.player.shooterCount, 10); // Max 10 bullets
-    
+
     for (let i = 0; i < bulletsToShoot; i++) {
       // Calculate spread for multiple bullets
-      const offset = (i - (bulletsToShoot - 1) / 2) * spreadAngle / Math.max(1, bulletsToShoot - 1);
+      const offset =
+        ((i - (bulletsToShoot - 1) / 2) * spreadAngle) /
+        Math.max(1, bulletsToShoot - 1);
       const rotation = this.player.rotation + offset;
-      
+
       // Calculate gun position
       const gunLength = 25;
       const gunX = playerCenterX + Math.cos(rotation) * gunLength;
@@ -590,13 +591,13 @@ export class Game {
     }
   }
 
-  private updateGates(currentTime: number): void {
+  private updateGates(_currentTime: number): void {
     for (let i = this.gates.length - 1; i >= 0; i--) {
       const gate = this.gates[i];
-      
+
       // Move gate down
       gate.y += GATE_SPEED;
-      
+
       // Remove gates that are off screen
       if (gate.y > CANVAS_HEIGHT + gate.height) {
         this.gates.splice(i, 1);
@@ -607,21 +608,25 @@ export class Game {
   private updateGateSpawning(currentTime: number): void {
     if (currentTime - this.lastGateSpawnTime > GATE_SPAWN_INTERVAL) {
       // Create gates for both lanes
-      const leftLaneType = Math.random() > 0.5 ? GateType.ADD : GateType.MULTIPLY;
-      const rightLaneType = Math.random() > 0.5 ? GateType.ADD : GateType.MULTIPLY;
-      
+      const leftLaneType =
+        Math.random() > 0.5 ? GateType.ADD : GateType.MULTIPLY;
+      const rightLaneType =
+        Math.random() > 0.5 ? GateType.ADD : GateType.MULTIPLY;
+
       // Random values
-      const leftValue = leftLaneType === GateType.ADD 
-        ? Math.floor(Math.random() * 3) + 1  // +1 to +3
-        : Math.floor(Math.random() * 2) + 2; // x2 to x3
-      
-      const rightValue = rightLaneType === GateType.ADD 
-        ? Math.floor(Math.random() * 3) + 1  // +1 to +3
-        : Math.floor(Math.random() * 2) + 2; // x2 to x3
-      
+      const leftValue =
+        leftLaneType === GateType.ADD
+          ? Math.floor(Math.random() * 3) + 1 // +1 to +3
+          : Math.floor(Math.random() * 2) + 2; // x2 to x3
+
+      const rightValue =
+        rightLaneType === GateType.ADD
+          ? Math.floor(Math.random() * 3) + 1 // +1 to +3
+          : Math.floor(Math.random() * 2) + 2; // x2 to x3
+
       this.gates.push(createGate(0, leftLaneType, leftValue));
       this.gates.push(createGate(1, rightLaneType, rightValue));
-      
+
       this.lastGateSpawnTime = currentTime;
     }
   }
@@ -629,18 +634,21 @@ export class Game {
   private checkGateCollisions(): void {
     for (const gate of this.gates) {
       if (gate.passed || !gate.active) continue;
-      
+
       // Check if player is in the same lane and collides with gate
-      if (this.player.currentLane === gate.lane && checkRectCollision(this.player, gate)) {
+      if (
+        this.player.currentLane === gate.lane &&
+        checkRectCollision(this.player, gate)
+      ) {
         gate.passed = true;
-        
+
         // Apply gate effect
         if (gate.type === GateType.ADD) {
           this.player.shooterCount += gate.value;
         } else if (gate.type === GateType.MULTIPLY) {
           this.player.shooterCount *= gate.value;
         }
-        
+
         // Cap shooter count at reasonable maximum
         this.player.shooterCount = Math.min(this.player.shooterCount, 50);
       }

@@ -14,22 +14,15 @@ import {
   BULLET_DAMAGE,
   BULLET_LIFETIME,
   ZOMBIE_CONFIGS,
-  ZOMBIE_SPAWN_MARGIN,
   RESOURCE_NODE_SIZE,
   RESOURCES_PER_NODE,
-  CANVAS_WIDTH,
   CANVAS_HEIGHT,
   LANE_WIDTH,
   GATE_WIDTH,
   GATE_HEIGHT,
   INITIAL_SHOOTER_COUNT,
 } from "./constants";
-import {
-  getRandomSpawnPosition,
-  normalize,
-  distance,
-  weightedRandomZombieType,
-} from "./utils";
+import { weightedRandomZombieType } from "./utils";
 
 /**
  * Create a new player
@@ -89,14 +82,17 @@ export function createBullet(
  */
 export function createZombie(type: ZombieType, lane?: number): Zombie {
   const config = ZOMBIE_CONFIGS[type];
-  
+
   // If no lane specified, pick a random lane (0 or 1)
-  const selectedLane = lane !== undefined ? lane : Math.floor(Math.random() * 2);
-  
+  const selectedLane =
+    lane !== undefined ? lane : Math.floor(Math.random() * 2);
+
   // Spawn zombies at random X position within the lane
   const laneStart = selectedLane * LANE_WIDTH;
-  const laneEnd = laneStart + LANE_WIDTH;
-  const spawnX = laneStart + (Math.random() * (LANE_WIDTH - config.radius * 2)) + config.radius;
+  const spawnX =
+    laneStart +
+    Math.random() * (LANE_WIDTH - config.radius * 2) +
+    config.radius;
 
   return {
     x: spawnX,
@@ -159,8 +155,8 @@ export function createResourceNode(x: number, y: number): ResourceNode {
  */
 export function updateZombieAI(
   zombie: Zombie,
-  targetX: number,
-  targetY: number
+  _targetX: number,
+  _targetY: number
 ): void {
   // Zombies move straight down (north to south)
   // Only Y velocity, moving downward
@@ -235,7 +231,7 @@ export function getZombieColor(zombie: Zombie): string {
 export function createGate(lane: number, type: GateType, value: number): Gate {
   const laneStart = lane * LANE_WIDTH;
   const gateX = laneStart + (LANE_WIDTH - GATE_WIDTH) / 2;
-  
+
   return {
     x: gateX,
     y: -GATE_HEIGHT - 20, // Start above screen
