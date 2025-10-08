@@ -1,6 +1,6 @@
 // Game constants and configuration
 
-export const CANVAS_WIDTH = 1200;
+export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 800;
 
 // Player constants
@@ -95,7 +95,7 @@ export const ZOMBIE_CONFIGS: Record<
 export const BASE_ZOMBIES_PER_WAVE = 10;
 export const WAVE_ZOMBIE_INCREASE = 5;
 export const WAVE_DELAY = 5000; // milliseconds between waves
-export const ZOMBIE_SPAWN_INTERVAL = 2000; // milliseconds between spawns in a wave
+export const ZOMBIE_SPAWN_INTERVAL = 800; // milliseconds between spawns in a wave
 
 // Resource constants
 export const RESOURCE_NODE_SIZE = 30;
